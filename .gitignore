@@ -1,0 +1,30 @@
+# --- Sensible Daten & Secrets ---
+.env
+.env.local
+
+# --- Docker Daten & Metadaten (NICHT tracken) ---
+# Jellyfin Metadaten & Cache (Das verursacht die tausenden Dateien)
+jellyfin-config/
+jellyfin/
+jellyfin-cache/
+
+# Andere Container Daten
+etc-pihole/
+etc-dnsmasq.d/
+etc-unbound/
+samba-data/
+pihole/
+dns/
+influxdb-data/
+grafana-data/
+
+# --- Temporäre Dateien & Backups ---
+__pycache__/
+*.pyc
+*.log
+*.old
+*.bak
+*.sav
+*.swp
+sentinel_status.json
+logs/
