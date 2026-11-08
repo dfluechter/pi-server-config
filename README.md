@@ -1,68 +1,29 @@
-# Hi there 👋 I'm Dominik
+# Raspberry Pi 5 Home-Server Konfiguration (`raspi5`)
 
+![Raspberry Pi 5](https://img.shields.io/badge/Hardware-Raspberry%20Pi%205-C51A4A?style=flat-square&logo=raspberry-pi&logoColor=white)
+![Debian Linux](https://img.shields.io/badge/OS-Debian%20Linux-A81D33?style=flat-square&logo=debian&logoColor=white)
+[Pi-hole](https://img.shields.io/badge/DNS-Pi--hole%20%26%20Unbound-96060C?style=flat-square&logo=pihole&logoColor=white)
+![Jellyfin](https://img.shields.io/badge/Media-Jellyfin%20Server-00A4DC?style=flat-square&logo=jellyfin&logoColor=white)
+![Samba](https://img.shields.io/badge/Storage-Samba%20NAS-4A90E2?style=flat-square&logo=linux&logoColor=white)
+![Minecraft](https://img.shields.io/badge/Gaming-Minecraft%20Server-62B47A?style=flat-square&logo=minecraft&logoColor=white)
 
-## 🏗️ Stack & Services
-
-The server runs on **Docker Compose** and hosts the following services:
-
-* **Jellyfin**: Media Server (Movies, TV Shows).
-* **Pi-hole + Unbound**: Network-wide Ad Blocking & Recursive DNS.
-* **Samba**: Network Attached Storage (NAS) access.
-* **Monitoring**: Doozle, InfluxDB & Grafana (for data logging).
-
-## 📟 "The Sentinel" - OLED Display Script
-
-A custom Python script (`scripts/display_stats.py`) controls the attached OLED display to show real-time metrics:
-
-* **CPU & RAM Usage**
-* **Disk Storage**
-* **CPU Temperature** (with color-coded warnings)
-* **Uptime & IP Address**
-
-The script handles button inputs to toggle the display (saving OLED lifetime).
-
-## 🚀 Setup & Deployment
-
-1.  **Clone the repository:**
-    ```bash
-    git clone git@github.com:dfluechter/pi-server-config.git
-    cd pi-server-config
-    ```
-
-2.  **Create Environment Variables:**
-    Create a `.env` file (excluded from Git for security):
-    ```ini
-    PIHOLE_PASSWORD=secret
-    SAMBA_USER=user
-    SAMBA_PASS=secret
-    ```
-
-3.  **Start Services:**
-    ```bash
-    docker-compose up -d
-    ```
-
-## 📂 Structure
-
-* `docker-compose.yml`: Main service definition.
-* `scripts/`: Python scripts for hardware automation.
-* `etc-*/`: Configuration files mapped to containers.
-
-<img width="720" height="1280" alt="Designer (1)" src="https://github.com/user-attachments/assets/a319430b-fb75-43e0-83ef-f17d70c8a3df" />
-=======
-> Building reliable home labs, Raspberry Pi servers, and delightful developer tooling.
-
-
-I'm a passionate maker and software engineer who loves turning ideas into reliable systems — from Pi-based home servers to small-scale media and networking stacks. This README is a living snapshot of what I'm building, my skills, and how to collaborate.
+Dieses Repository enthält alle wichtigen System-, Netzwerk- und Hardware- Konfigurationsdateien sowie Wartungsskripte für meinen Raspberry Pi 5 Home-Server (`raspi5`).
 
 ---
-*Created by Dominik Flüchter 2026*
-=======
 
-## 🔭 Currently
-- Maintaining and improving my Raspberry Pi server config and services (Pi-hole, Unbound, Jellyfin, Samba, etc.).
-- Experimenting with lightweight, resilient home infrastructure and automation.
-- Learning more about container security and efficient CI/CD for edge devices.
+##📂 Verzeichnisstruktur
+
+```text
+pi-server-config/
+├── config/
+│   ├── pihole/          # Pi-hole Konfigurationen (pihole-FTL.conf, setupVars.conf, dnsmasq.d)
+│   ├── samba/           # Samba-Freigaben (smb.conf)
+│   ├── system/          # Systemdateien (bashrc, bash_aliases, config.txt, fstab, hosts, xorg)
+│   └── unbound/         # Unbound DNS-Resolver Konfigurationen
+├── minecraft/           # Minecraft-Server Setup, Plan-Skript & Server-Configs
+├── scripts/
+│   └── git-sync-configs.sh  # Automatisches Backup-Skript für alle modifizierten Dateien
+└── README.md            # Dokumentation & Befehlsreferenz
 
 ## ⚡ Highlights
 - Reliable local DNS + ad-blocking with unbound + Pi-hole.
@@ -72,17 +33,14 @@ I'm a passionate maker and software engineer who loves turning ideas into reliab
 
 ## 🛠️ Top skills
 - Linux / Raspberry Pi administration
-- Docker & docker-compose
 - DNS & networking (Unbound, Pi-hole, dnsmasq)
 - Media servers (Jellyfin)
 - Shell scripting & small automation
 - Backup strategies and disk management
 
 ## ⭐ Featured projects
-- [pi-server-config](https://github.com/dfluechter/pi-server-config) — My Raspberry Pi server configuration and docker-compose setup (Pi-hole, Unbound, Jellyfin, Samba).
+- [pi-server-config](https://github.com/dfluechter/pi-server-config) — My Raspberry Pi server configuration (Pi-hole, Unbound, Jellyfin, Samba).
 
-
-(If you'd like these to be real links and descriptions, send me the repo names and a 1–2 line summary for each.)
 
 ## 📫 How to reach me
 - GitHub: [@dfluechter](https://github.com/dfluechter)
@@ -110,7 +68,4 @@ I'm a passionate maker and software engineer who loves turning ideas into reliab
 
 ## 📝 Notes
 - This README is a template. Replace placeholder links and text with your preferred contact info, project descriptions, and pronouns.
-- Want badges, more automation (like GitHub Actions status), or a different style? I can generate those once I have your preferred services and links.
-
----
-Thank you for visiting — let's build something practical and well-documented!
+- Thank you for visiting — let's build something practical and well-documented!

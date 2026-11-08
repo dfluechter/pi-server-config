@@ -1,0 +1,12 @@
+[user]
+	name = dfluechter
+	email = dominik.fluechter@googlemail.com
+	signingkey = /home/raspi/.ssh/id_ed25519.pub
+[gpg]
+	format = ssh
+[commit]
+	gpgsign = true
+[tag]
+	gpgsign = true
+[gpg "ssh"]
+	allowedSignersFile = /home/raspi/.ssh/allowed_signers

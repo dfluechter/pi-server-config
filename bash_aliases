@@ -14,13 +14,14 @@ alias ...='cd ../..'
 alias bat='batcat'
 alias cat='batcat --paging=never'
 
-# --- System, Updates & Temperatur ---
+# --- System, Dienste, Updates & Temperatur ---
 alias update='sudo apt update && sudo apt upgrade -y'
 alias diskusage='df -h -T -x tmpfs -x devtmpfs'
 alias pi-temp='vcgencmd measure_temp'
 alias ports='sudo ss -tulpn'
+alias services='sudo systemctl status pihole-FTL unbound jellyfin smbd nmbd wsdd2 --no-pager'
 
-# --- Farbige Logs (Pi-hole v6 & Debian Bookworm Journal) ---
+# --- Farbige Logs (Pi-hole v6 & Debian Journal) ---
 alias plog='sudo pihole tail'
 alias pstatus='sudo pihole status'
 alias pupdate='sudo pihole -up'

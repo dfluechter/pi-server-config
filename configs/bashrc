@@ -1,0 +1,36 @@
+# Farbige Unterstützung für ls und grep aktivieren
+if [ -x /usr/bin/dircolors ]; then
+    test -r ~/.dircolors && eval "$(dircolors -b ~/.dircolors)" || eval "$(dircolors -b)"
+    alias grep='grep --color=auto'
+    alias fgrep='fgrep --color=auto'
+    alias egrep='egrep --color=auto'
+fi
+
+# Farbiger Prompt (User@Host:Pfad mit Farben)
+export PS1='\[\033[01;32m\]\u@\h\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]\$ '
+
+# Automatische Farbgebung für Standard-Befehle via grc
+if [ -f /etc/grc.bashrc ]; then
+    source /etc/grc.bashrc
+fi
+
+# Farbiger Log-Tail (hebt ERROR rot und SUCCESS/INFO grün/blau hervor)
+flog() {
+    tail -f "$1" | awk '
+        /ERROR|Error|error|FATAL/ {print "\033[31m" $0 "\033[0m"; next}
+        /WARN|Warn|warning/     {print "\033[33m" $0 "\033[0m"; next}
+        /INFO|Info|SUCCESS/     {print "\033[32m" $0 "\033[0m"; next}
+        {print}
+    '
+}
+
+# Lade modulare Konfigurationen aus dem pi-server-config Repository
+if [ -d "$HOME/pi-server-config/shell" ]; then
+    for config in "$HOME/pi-server-config/shell/"*.sh; do
+        [ -r "$config" ] && source "$config"
+    done
+fi
+
+if [ -f ~/.bash_aliases ]; then
+    . ~/.bash_aliases
+fi
