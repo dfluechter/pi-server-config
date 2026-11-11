@@ -28,3 +28,38 @@ __pycache__/
 *.swp
 sentinel_status.json
 logs/
+
+# --- Sensible Daten, Passwörter & Schlüssel ---
+*.env
+.env*
+*credentials*
+*.key
+*.pem
+tls.pem
+
+# --- Große Archive & Welten-Downloads (verhindert GitHub Push-Limits) ---
+*.zip
+*.tar.gz
+*.7z
+*.rar
+minecraft/worlds/*.zip
+
+# --- Minecraft Laufzeitdaten, Datenbanken, Caches & Binaries ---
+minecraft/world*/
+minecraft/adventure_world*/
+minecraft/logs/
+minecraft/crash-reports/
+minecraft/cache/
+minecraft/libraries/
+minecraft/versions/
+minecraft/plugins/*.jar
+minecraft/plugins/Geyser-Spigot/cache/
+minecraft/plugins/squaremap/web/tiles/
+minecraft/*.jar
+
+# ---Systemd Symlinks (*.wants) & temporäre Backup-Dateien ---
+config/system/systemd/*.wants/
+config/system/systemd/*. service.wants/
+*.bak
+*.swp
+*~

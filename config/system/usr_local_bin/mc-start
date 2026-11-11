@@ -1,0 +1,78 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# ==============================================================================
+# Minecraft PaperMC Startskript (Raspberry Pi 5 - 4GB RAM / Java 25 / Aikar's Flags)
+# ==============================================================================
+
+SERVER_DIR="${HOME}/minecraft-server"
+JAR_FILE="paper.jar"
+MEMORY="2500M"
+
+# ANSI-Farbcodes für übersichtliche Statusmeldungen
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+RED='\033[0;31m'
+CYAN='\033[0;36m'
+BLUE='\033[0;34m'
+NC='\033[0m'
+
+log_info()  { echo -e "${CYAN}[$(date +'%H:%M:%S')] [MC-START]${NC} $*"; }
+log_ok()    { echo -e "${GREEN}[$(date +'%H:%M:%S')] [MC-START]${NC} $*"; }
+log_warn()  { echo -e "${YELLOW}[$(date +'%H:%M:%S')] [MC-START]${NC} $*"; }
+log_error() { echo -e "${RED}[$(date +'%H:%M:%S')] [MC-START]${NC} $*" >&2; }
+
+if [[ ! -d "$SERVER_DIR" ]]; then
+    log_error "Server-Verzeichnis nicht gefunden: ${SERVER_DIR}"
+    exit 1
+fi
+
+cd "$SERVER_DIR"
+
+if [[ ! -L "$JAR_FILE" && ! -f "$JAR_FILE" ]]; then
+    log_error "Startdatei '${JAR_FILE}' fehlt in ${SERVER_DIR}!"
+    log_warn "Bitte zuerst ~/minecraft-server/update-paper.sh ausführen."
+    exit 1
+fi
+
+# Prüft den aktuell verfügbaren Arbeitsspeicher auf dem 4GB Pi 5
+AVAIL_MEM_MB=$(free -m | awk '/^Mem:/{print $7}')
+TARGET_JAR=$(readlink -f "$JAR_FILE" || echo "$JAR_FILE")
+
+echo -e "${BLUE}=================================================================${NC}"
+log_info "Starte PaperMC ($(basename "$TARGET_JAR")) mit ${MEMORY} Heap-RAM..."
+log_info "Freier System-RAM vor Start: ${AVAIL_MEM_MB} MB (von 4049 MB)"
+log_info "Java-Version: $(java -version 2>&1 | head -n 1)"
+echo -e "${BLUE}=================================================================${NC}"
+
+if (( AVAIL_MEM_MB < 2600 )); then
+    log_warn "Weniger als 2600 MB RAM frei (${AVAIL_MEM_MB} MB). Prüfe ggf. andere Dienste!"
+fi
+
+# Startet den Server mit Java 25 Flags & Aikar's G1GC-Optimierungen (für < 12GB RAM)
+exec java \
+    --enable-native-access=ALL-UNNAMED \
+    -Xms"${MEMORY}" \
+    -Xmx"${MEMORY}" \
+    -XX:+UseG1GC \
+    -XX:+ParallelRefProcEnabled \
+    -XX:MaxGCPauseMillis=200 \
+    -XX:+UnlockExperimentalVMOptions \
+    -XX:+DisableExplicitGC \
+    -XX:+AlwaysPreTouch \
+    -XX:G1NewSizePercent=30 \
+    -XX:G1MaxNewSizePercent=40 \
+    -XX:G1HeapRegionSize=8M \
+    -XX:G1ReservePercent=20 \
+    -XX:G1HeapWastePercent=5 \
+    -XX:G1MixedGCCountTarget=4 \
+    -XX:InitiatingHeapOccupancyPercent=15 \
+    -XX:G1MixedGCLiveThresholdPercent=90 \
+    -XX:G1RSetUpdatingPauseTimePercent=5 \
+    -XX:SurvivorRatio=32 \
+    -XX:+PerfDisableSharedMem \
+    -XX:MaxTenuringThreshold=1 \
+    -Dusing.aikars.flags=https://mcflags.emc.gs \
+    -Daikars.new.flags=true \
+    -jar "$JAR_FILE" \
+    --nogui

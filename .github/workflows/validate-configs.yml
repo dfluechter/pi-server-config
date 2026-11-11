@@ -1,0 +1,26 @@
+name: Validate System Configs
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Check for syntax errors in bash scripts
+        run: |
+          find . -name "*.sh" -exec bash -n {} +
+
+      - name: Validate YAML configuration files
+        uses: ibml/action-yamllint@v2
+        with:
+          config_data: |
+            extends: default
+            rules:
+              line-length: disable
