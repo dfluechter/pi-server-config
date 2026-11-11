@@ -2,7 +2,7 @@
 
 ![Raspberry Pi 5](https://img.shields.io/badge/Hardware-Raspberry%20Pi%205-C51A4A?style=flat-square&logo=raspberry-pi&logoColor=white)
 ![Debian Linux](https://img.shields.io/badge/OS-Debian%20Linux-A81D33?style=flat-square&logo=debian&logoColor=white)
-[Pi-hole](https://img.shields.io/badge/DNS-Pi--hole%20%26%20Unbound-96060C?style=flat-square&logo=pihole&logoColor=white)
+![Pi-hole](https://img.shields.io/badge/DNS-Pi--hole%20%26%20Unbound-96060C?style=flat-square&logo=pihole&logoColor=white)
 ![Jellyfin](https://img.shields.io/badge/Media-Jellyfin%20Server-00A4DC?style=flat-square&logo=jellyfin&logoColor=white)
 ![Samba](https://img.shields.io/badge/Storage-Samba%20NAS-4A90E2?style=flat-square&logo=linux&logoColor=white)
 ![Minecraft](https://img.shields.io/badge/Gaming-Minecraft%20Server-62B47A?style=flat-square&logo=minecraft&logoColor=white)
