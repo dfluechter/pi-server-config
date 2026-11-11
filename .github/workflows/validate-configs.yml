@@ -9,37 +9,52 @@ on:
 
 jobs:
   validate:
-    name: Syntax, YAML & Security Check
+    name: Bash, Python, YAML/TOML/XML & Security Check
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: 1. Check Bash Scripts Syntax (bash -n)
+      - name: 1. Check Bash Scripts (bash -n & ShellCheck)
         run: |
-          echo "=== Prüfe Bash-Syntax aller Skripte ==="
-          while IFS= read -r -d '' script; do
-            echo "Prüfe: $script"
-            bash -n "$script"
-          done < <(find scripts config/system/usr_local_bin minecraft -type f \( -name "*.sh" -o -path "*/usr_local_bin/*" \) -print0 2>/dev/null)
-          echo "OK: Alle Bash-Skripte sind syntaktisch fehlerfrei."
+          echo "=== Prüfe alle Bash-Skripte per Dateiendung oder Shebang ==="
+          bash_count=0
+          while IFS= read -r -d '' file; do
+            first_line=$(head -n 1 "$file" 2>/dev/null || true)
+            if [[ "$file" == *.sh ]] || [[ "$first_line" =~ ^#!.*(bash|sh) ]]; then
+              echo "[BASH] Prüfe Syntax & ShellCheck: $file"
+              bash -n "$file"
+              shellcheck --severity=error "$file"
+              bash_count=$((bash_count + 1))
+            fi
+          done < <(find scripts config/system/usr_local_bin minecraft -type f -print0 2>/dev/null)
+          echo "[OK] $bash_count Bash-Skript(e) erfolgreich geprüft."
 
-      - name: 2. Lint Scripts with ShellCheck
+      - name: 2. Check Python Scripts (py_compile)
         run: |
-          echo "=== Starte ShellCheck (Severity: error) ==="
-          find scripts config/system/usr_local_bin minecraft -type f \( -name "*.sh" -o -path "*/usr_local_bin/*" \) -exec shellcheck --severity=error {} +
-          echo "OK: ShellCheck erfolgreich bestanden."
+          echo "=== Prüfe alle Python-Skripte (z. B. jellyfin-rename) ==="
+          py_count=0
+          while IFS= read -r -d '' file; do
+            first_line=$(head -n 1 "$file" 2>/dev/null || true)
+            if [[ "$file" == *.py ]] || [[ "$first_line" =~ ^#!.*python ]]; then
+              echo "[PYTHON] Kompiliere Syntax-Check: $file"
+              python3 -m py_compile "$file"
+              py_count=$((py_count + 1))
+            fi
+          done < <(find scripts config/system/usr_local_bin minecraft -type f -print0 2>/dev/null)
+          echo "[OK] $py_count Python-Skript(e) erfolgreich geprüft."
 
-      - name: 3. Validate YAML & TOML Configurations
+      - name: 3. Validate YAML, TOML & XML Configurations
         run: |
-          echo "=== Prüfe YAML-Dateien (PaperMC, Geyser, Squaremap, Chunky, Workflows) ==="
+          echo "=== Prüfe YAML, TOML & XML Konfigurationsdateien ==="
           python3 -c '
           import pathlib, sys, yaml, tomllib
+          import xml.etree.ElementTree as ET
 
           errors = 0
           for p in pathlib.Path(".").rglob("*"):
-              if ".git" in p.parts:
+              if ".git" in p.parts or not p.is_file():
                   continue
               if p.suffix in (".yml", ".yaml"):
                   try:
@@ -56,6 +71,13 @@ jobs:
                       print(f"[OK] TOML: {p}")
                   except Exception as e:
                       print(f"[ERROR] TOML {p}: {e}", file=sys.stderr)
+                      errors += 1
+              elif p.suffix == ".xml":
+                  try:
+                      ET.parse(p)
+                      print(f"[OK] XML:  {p}")
+                  except Exception as e:
+                      print(f"[ERROR] XML {p}: {e}", file=sys.stderr)
                       errors += 1
 
           if errors > 0:
@@ -74,7 +96,7 @@ jobs:
           fi
 
           echo "=== Prüfe auf versehentlich eingecheckte Systemd-Symlinks oder große ZIPs ==="
-          if find config/system/systemd -type l | grep -q .; then
+          if [ -d "config/system/systemd" ] && find config/system/systemd -type l | grep -q .; then
             echo "FEHLER: Systemd-Symlinks in config/system/systemd gefunden!"
             exit 1
           fi

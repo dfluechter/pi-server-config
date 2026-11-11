@@ -1,0 +1,302 @@
+#!/usr/bin/env python3
+"""
+Automatischer Film-Umbenenner für Jellyfin (IMDb-ID Schema)
+Format: Filmtitel (Jahr) [imdbid-ttXXXXXXX].ext
+Pfad:   /usr/local/bin/jellyfin-rename
+"""
+
+import argparse
+import json
+import os
+import re
+import sys
+import urllib.parse
+import urllib.request
+from pathlib import Path
+
+# ANSI-Farbcodes für übersichtliche Logs
+GREEN = "\033[0;32m"
+BLUE = "\033[0;34m"
+YELLOW = "\033[1;33m"
+RED = "\033[0;31m"
+CYAN = "\033[0;36m"
+MAGENTA = "\033[0;35m"
+NC = "\033[0m"
+
+VIDEO_EXTENSIONS = {".mkv", ".mp4", ".avi", ".m4v", ".mov", ".ts"}
+SUBTITLE_EXTENSIONS = {".srt", ".sub", ".idx", ".ass", ".ssa", ".vtt"}
+
+# Typische Tags in Dateinamen, die bei der IMDb-Suche stören
+JUNK_PATTERNS = re.compile(
+    r"\b(1080p|2160p|720p|480p|4k|uhd|hdr|hdr10|hdr10plus|dv|dovi|dolby\.?vision|"
+    r"bluray|blu-ray|bdrip|brrip|webrip|web-dl|webdl|hdrip|dvdrip|remux|"
+    r"x264|x265|h264|h265|hevc|av1|aac|ac3|eac3|dts|dd5\.?1|truehd|atmos|"
+    r"german|deutsch|dl|ml|multi|subbed|dubbed|extended|uncut|directors\.?cut|"
+    r"proper|repack|internal|limited|wott)\b",
+    re.IGNORECASE,
+)
+
+
+def log_info(msg: str) -> None:
+    print(f"{CYAN}[INFO]{NC}  {msg}")
+
+
+def log_ok(msg: str) -> None:
+    print(f"{GREEN}[OK]{NC}    {msg}")
+
+
+def log_warn(msg: str) -> None:
+    print(f"{YELLOW}[SKIP]{NC}  {msg}")
+
+
+def log_err(msg: str) -> None:
+    print(f"{RED}[ERROR]{NC} {msg}", file=sys.stderr)
+
+
+def clean_movie_title(stem: str) -> tuple[str, str | None]:
+    """Extrahiert den sauberen Filmtitel und optional das Erscheinungsjahr aus dem Dateinamen."""
+    # Punkte und Unterstriche durch Leerzeichen ersetzen
+    name = re.sub(r"[._]+", " ", stem)
+
+    # Eventuelles Jahr (1920-2039) im Dateinamen merken
+    year_match = re.search(r"\b(19\d{2}|20[0-3]\d)\b", name)
+    year = year_match.group(1) if year_match else None
+    if year_match:
+        # Alles ab der Jahreszahl abschneiden (dahinter folgen meist nur Codec-Tags)
+        name = name[: year_match.start()]
+
+    # Klammern und bekannte Release-Tags entfernen
+    name = re.sub(r"\[.*?\]|\(.*?\)", " ", name)
+    name = JUNK_PATTERNS.sub(" ", name)
+    name = re.sub(r"\s+", " ", name).strip(" -_.")
+
+    return name, year
+
+
+def sanitize_filename(title: str) -> str:
+    """Ersetzt Zeichen, die auf Linux/SMB/Windows-Dateisystemen ungültig sind."""
+    title = title.replace(":", " -").replace("/", "-").replace("\\", "-")
+    title = re.sub(r'[<>"|?*]', "", title)
+    return re.sub(r"\s+", " ", title).strip()
+
+
+def query_imdb(title: str, year: str | None = None) -> dict | None:
+    """Sucht den Film über die freie IMDb Suggestion API (mit deutschem Sprach-Header)."""
+    search_query = f"{title} {year}".strip() if year else title
+    clean_query = re.sub(r"[^a-zA-Z0-9äöüÄÖÜß ]", "", search_query).strip().lower()
+    if not clean_query:
+        return None
+
+    first_char = clean_query[0] if clean_query[0].isalnum() else "a"
+    encoded_query = urllib.parse.quote(clean_query)
+    url = f"https://v3.sg.media-imdb.com/suggestion/{first_char}/{encoded_query}.json"
+
+    req = urllib.request.Request(
+        url,
+        headers={
+            "User-Agent": "Mozilla/5.0 (X11; Linux aarch64) AppleWebKit/537.36",
+            "Accept-Language": "de-DE,de;q=0.9,en-US;q=0.8,en;q=0.7",
+        },
+    )
+
+    try:
+        with urllib.request.urlopen(req, timeout=8) as response:
+            data = json.loads(response.read().decode("utf-8"))
+    except Exception as exc:
+        log_err(f"API-Abfrage fehlgeschlagen für '{search_query}': {exc}")
+        return None
+
+    results = data.get("d", [])
+    # Nur echte Filme ('movie' oder 'tvMovie') mit gültiger tt-ID filtern
+    movies = [
+        item
+        for item in results
+        if item.get("id", "").startswith("tt")
+        and item.get("qid") in ("movie", "tvMovie", "video")
+    ]
+
+    if not movies and results:
+        movies = [item for item in results if item.get("id", "").startswith("tt")]
+
+    if not movies:
+        return None
+
+    # Falls ein Jahr im Dateinamen stand, exakten Jahrestreffer bevorzugen
+    if year:
+        for movie in movies:
+            if str(movie.get("y", "")) == year:
+                return movie
+
+    return movies[0]
+
+
+def rename_associated_subtitles(old_video: Path, new_stem: str, dry_run: bool) -> None:
+    """Benennt gleichnamige Untertiteldateien (z. B. .srt oder .de.srt) passend mit um."""
+    parent = old_video.parent
+    old_stem = old_video.stem
+
+    for item in parent.iterdir():
+        if not item.is_file() or item == old_video:
+            continue
+        if item.suffix.lower() in SUBTITLE_EXTENSIONS and item.name.startswith(old_stem):
+            # Erhält Sprachkürzel wie '.de.srt' oder '.forced.srt'
+            middle_suffix = item.name[len(old_stem) : -len(item.suffix)]
+            new_sub_name = f"{new_stem}{middle_suffix}{item.suffix}"
+            new_sub_path = parent / new_sub_name
+            if dry_run:
+                log_info(f"  [DRY-RUN Untertitel] {item.name} -> {new_sub_name}")
+            else:
+                item.rename(new_sub_path)
+                log_ok(f"  [Untertitel] {item.name} -> {new_sub_name}")
+
+
+def process_directory(
+    target_dir: Path, dry_run: bool, interactive: bool, create_folders: bool
+) -> None:
+    if not target_dir.exists() or not target_dir.is_dir():
+        log_err(f"Verzeichnis nicht gefunden: {target_dir}")
+        sys.exit(1)
+
+    print(f"{BLUE}====================================================================={NC}")
+    log_info(f"Scanne Film-Verzeichnis: {target_dir}")
+    log_info(
+        f"Modus: {'TESTLAUF (--dry-run)' if dry_run else 'LIVE-UMBENENNUNG'} | "
+        f"Interaktiv: {'Ja' if interactive else 'Nein'}"
+    )
+    print(f"{BLUE}====================================================================={NC}\n")
+
+    video_files = sorted(
+        [
+            p
+            for p in target_dir.iterdir()
+            if p.is_file() and p.suffix.lower() in VIDEO_EXTENSIONS
+        ]
+    )
+
+    if not video_files:
+        log_warn("Keine Videodateien im angegebenen Verzeichnis gefunden.")
+        return
+
+    renamed_count = 0
+    skipped_count = 0
+
+    for video_path in video_files:
+        # Bereits im richtigen Format?
+        if re.search(r"\[imdbid-tt\d+\]", video_path.stem, re.IGNORECASE):
+            log_warn(f"Bereits mit IMDb-ID versehen: {video_path.name}")
+            skipped_count += 1
+            continue
+
+        clean_title, year = clean_movie_title(video_path.stem)
+        if not clean_title:
+            log_warn(f"Konnte keinen Titel extrahieren aus: {video_path.name}")
+            skipped_count += 1
+            continue
+
+        match = query_imdb(clean_title, year)
+        # Fallback: Falls mit Jahreszahl nichts gefunden wurde, nur nach Titel suchen
+        if not match and year:
+            match = query_imdb(clean_title, None)
+
+        if not match:
+            log_err(f"Kein IMDb-Treffer für: '{video_path.name}' (Suchbegriff: '{clean_title}')")
+            skipped_count += 1
+            continue
+
+        imdb_id = match.get("id")
+        imdb_title = sanitize_filename(match.get("l", clean_title))
+        imdb_year = match.get("y", year or "")
+
+        if imdb_year:
+            new_stem = f"{imdb_title} ({imdb_year}) [imdbid-{imdb_id}]"
+        else:
+            new_stem = f"{imdb_title} [imdbid-{imdb_id}]"
+
+        new_filename = f"{new_stem}{video_path.suffix}"
+        new_file_path = video_path.parent / new_filename
+
+        if new_file_path == video_path:
+            log_warn(f"Name bereits exakt: {video_path.name}")
+            skipped_count += 1
+            continue
+
+        print(f"{MAGENTA}Gefunden:{NC} {video_path.name}")
+        print(f"      -> {GREEN}{new_filename}{NC}")
+
+        if interactive:
+            answer = input("   Umbenennen? [j/N/q]: ").strip().lower()
+            if answer == "q":
+                log_info("Abbruch durch Benutzer.")
+                break
+            if answer not in ("j", "y", "ja", "yes"):
+                log_warn("Übersprungen durch Benutzer.\n")
+                skipped_count += 1
+                continue
+
+        if dry_run:
+            log_info(f"[DRY-RUN] Würde umbenennen in: {new_filename}")
+            rename_associated_subtitles(video_path, new_stem, dry_run=True)
+            renamed_count += 1
+        else:
+            try:
+                rename_associated_subtitles(video_path, new_stem, dry_run=False)
+                video_path.rename(new_file_path)
+                log_ok(f"Umbenannt: {new_filename}")
+
+                if create_folders:
+                    movie_folder = video_path.parent / new_stem
+                    movie_folder.mkdir(exist_ok=True)
+                    final_path = movie_folder / new_filename
+                    new_file_path.rename(final_path)
+                    log_ok(f"In eigenen Filmordner verschoben: {movie_folder.name}/")
+
+                renamed_count += 1
+            except OSError as err:
+                log_err(f"Fehler beim Umbenennen von {video_path.name}: {err}")
+        print()
+
+    print(f"{BLUE}====================================================================={NC}")
+    log_ok(f"Abgeschlossen! Verarbeitet: {renamed_count} | Übersprungen: {skipped_count}")
+    print(f"{BLUE}====================================================================={NC}")
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="Benennt Filme automatisch nach dem Jellyfin IMDb-Schema um."
+    )
+    parser.add_argument(
+        "directory",
+        nargs="?",
+        default="/mnt/speedport-usb/Filme",
+        help="Pfad zum Film-Ordner (Standard: /mnt/speedport-usb/Filme)",
+    )
+    parser.add_argument(
+        "-n",
+        "--dry-run",
+        action="store_true",
+        help="Testlauf: Zeigt nur an, wie die Filme umbenannt würden, ohne Dateien zu ändern.",
+    )
+    parser.add_argument(
+        "-i",
+        "--interactive",
+        action="store_true",
+        help="Fragt vor jeder Umbenennung kurz nach einer Bestätigung (j/N).",
+    )
+    parser.add_argument(
+        "-f",
+        "--folders",
+        action="store_true",
+        help="Legt zusätzlich für jeden Film einen gleichnamigen Unterordner an.",
+    )
+
+    args = parser.parse_args()
+    process_directory(
+        Path(args.directory),
+        dry_run=args.dry_run,
+        interactive=args.interactive,
+        create_folders=args.folders,
+    )
+
+
+if __name__ == "__main__":
+    main()
