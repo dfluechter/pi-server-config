@@ -1,26 +1,85 @@
-name: Validate System Configs
+name: Validate Server Configs
 
 on:
   push:
-    branches: [ main ]
+    branches: [ "main" ]
   pull_request:
-    branches: [ main ]
+    branches: [ "main" ]
+  workflow_dispatch:
 
 jobs:
-  lint:
+  validate:
+    name: Syntax, YAML & Security Check
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Check for syntax errors in bash scripts
+      - name: 1. Check Bash Scripts Syntax (bash -n)
         run: |
-          find . -name "*.sh" -exec bash -n {} +
+          echo "=== Prüfe Bash-Syntax aller Skripte ==="
+          while IFS= read -r -d '' script; do
+            echo "Prüfe: $script"
+            bash -n "$script"
+          done < <(find scripts config/system/usr_local_bin minecraft -type f \( -name "*.sh" -o -path "*/usr_local_bin/*" \) -print0 2>/dev/null)
+          echo "OK: Alle Bash-Skripte sind syntaktisch fehlerfrei."
 
-      - name: Validate YAML configuration files
-        uses: ibml/action-yamllint@v2
-        with:
-          config_data: |
-            extends: default
-            rules:
-              line-length: disable
+      - name: 2. Lint Scripts with ShellCheck
+        run: |
+          echo "=== Starte ShellCheck (Severity: error) ==="
+          find scripts config/system/usr_local_bin minecraft -type f \( -name "*.sh" -o -path "*/usr_local_bin/*" \) -exec shellcheck --severity=error {} +
+          echo "OK: ShellCheck erfolgreich bestanden."
+
+      - name: 3. Validate YAML & TOML Configurations
+        run: |
+          echo "=== Prüfe YAML-Dateien (PaperMC, Geyser, Squaremap, Chunky, Workflows) ==="
+          python3 -c '
+          import pathlib, sys, yaml, tomllib
+
+          errors = 0
+          for p in pathlib.Path(".").rglob("*"):
+              if ".git" in p.parts:
+                  continue
+              if p.suffix in (".yml", ".yaml"):
+                  try:
+                      with p.open("r", encoding="utf-8") as f:
+                          yaml.safe_load(f)
+                      print(f"[OK] YAML: {p}")
+                  except Exception as e:
+                      print(f"[ERROR] YAML {p}: {e}", file=sys.stderr)
+                      errors += 1
+              elif p.suffix == ".toml":
+                  try:
+                      with p.open("rb") as f:
+                          tomllib.load(f)
+                      print(f"[OK] TOML: {p}")
+                  except Exception as e:
+                      print(f"[ERROR] TOML {p}: {e}", file=sys.stderr)
+                      errors += 1
+
+          if errors > 0:
+              sys.exit(1)
+          '
+
+      - name: 4. Security & Repository Hygiene Check
+        run: |
+          echo "=== Prüfe auf Klartext-Passwörter in config/system/fstab ==="
+          if [ -f "config/system/fstab" ]; then
+            if grep -E "(password|pass)=[^*[:space:],]+" config/system/fstab; then
+              echo "FEHLER: Unmaskiertes Passwort in config/system/fstab gefunden!"
+              exit 1
+            fi
+            echo "[OK] fstab ist sauber maskiert."
+          fi
+
+          echo "=== Prüfe auf versehentlich eingecheckte Systemd-Symlinks oder große ZIPs ==="
+          if find config/system/systemd -type l | grep -q .; then
+            echo "FEHLER: Systemd-Symlinks in config/system/systemd gefunden!"
+            exit 1
+          fi
+          if find . -path ./.git -prune -o -name "*.zip" -print | grep -q .; then
+            echo "FEHLER: ZIP-Archiv im Repository gefunden!"
+            exit 1
+          fi
+          echo "[OK] Keine Symlinks oder ZIP-Archive vorhanden."
