@@ -1,0 +1,1 @@
+0 * * * * /home/raspi/pi-workspace/vault-autocommit.sh >> /home/raspi/pi-workspace/vault-git.log 2>&1

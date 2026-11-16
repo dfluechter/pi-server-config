@@ -90,15 +90,14 @@ nano ~/minecraft-server/server.properties
 4. IMDb-ID Benennungsschema für JellyfinDamit Jellyfin Filme beim Scan sofort zu 100 % eindeutig zuordnet, wird die IMDb-ID aus der URL (imdb.com/title/ttXXXXXXX/) im Format [imdbid-ttXXXXXXX] an den Ordner- und Dateinamen gehängt:Ordner: Matrix (1999) [imdbid-tt0133093]Datei: Matrix (1999) [imdbid-tt0133093].mkv💻 Allgemeine Bash-Befehlsreferenz (raspi5)1. Konfigurations-Backup ausführen & zu GitHub pushenBash# Backup-Skript starten (synchronisiert System-, Pi-hole-, Samba- & Minecraft-Configs)
 ~/pi-server-config/scripts/git-sync-configs.sh
 
-# Änderungen prüfen, signiert committen und zu GitHub pushen
-cd ~/pi-server-config
-git status
-git add .
-git commit -m "docs(readme): remove tft display references and update directory tree"
-git pull --rebase origin main
-git push origin main
-2. Pi-hole v6 & Unbound DiagnoseBash# Vollständigen Pi-hole Diagnosebericht erstellen
-pihole -d
+# 5. Geyser Befehle:
+/geyser connectiontest: Tests whether your server is reachable for other players
+/geyser dump: Dumps Geyser debug information for bug reports.
+/geyser help: Shows help for all registered commands.
+/geyser list: List all players connected through Geyser.
+/geyser nethernet: Shows NetherNet signaling status and diagnostics
+/geyser reload: Reloads the Geyser configurations. Kicks all players when used!
+/geyser version: Shows the current Geyser version and checks for updates.
 
 # Pi-hole FTL & Unbound Dienststatus prüfen
 sudo systemctl status pihole-FTL
@@ -130,6 +129,16 @@ git config --global user.email "dominik.fluechter@googlemail.com"
 git config --global pull.rebase true
 git config --global gpg.format ssh
 git config --global commit.gpgsign true
+
+# Änderungen prüfen, signiert committen und zu GitHub pushen
+cd ~/pi-server-config
+git status
+git add .
+git commit -m "docs(readme): remove tft display references and update directory tree"
+git pull --rebase origin main
+git push origin main
+2. Pi-hole v6 & Unbound DiagnoseBash# Vollständigen Pi-hole Diagnosebericht erstellen
+pihole -d
 
 🔒 Sicherheitshinweis für Backups
 Das Skript scripts/git-sync-configs.sh ersetzt beim Kopieren der /etc/fstab automatisch alle Klartext-Passwörter (password=... oder pass=...) durch **********.

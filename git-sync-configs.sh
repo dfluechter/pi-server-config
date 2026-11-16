@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # ==============================================================================
-# Datei: scripts/git-sync-configs.sh
+# Datei: git-sync-configs.sh
 # Beschreibung: Synchronisiert System-, Netzwerk-, Pi-hole- & Minecraft-Configs
 # Host: raspi5
 # ==============================================================================
@@ -59,6 +59,18 @@ copy_file "${HOME}/.bashrc" "${CONFIG_DIR}/system/bashrc"
 copy_file "${HOME}/.bash_aliases" "${CONFIG_DIR}/system/bash_aliases"
 copy_file "${HOME}/.profile" "${CONFIG_DIR}/system/profile"
 copy_file "${HOME}/.gitconfig" "${CONFIG_DIR}/system/gitconfig"
+
+# Sensible API-Keys, Tokens und Passwörter in kopierten Shell-Configs maskieren
+python3 - "${CONFIG_DIR}/system/bashrc" "${CONFIG_DIR}/system/bash_aliases" "${CONFIG_DIR}/system/profile" << 'PYEOF'
+import pathlib, re, sys
+pattern = re.compile(r"^(\s*(?:export\s+)?[A-Za-z0-9_]*(?:KEY|TOKEN|SECRET|PASSWORD|PASS)[A-Za-z0-9_]*\s*=\s*).*$", re.IGNORECASE)
+for arg in sys.argv[1:]:
+    f = pathlib.Path(arg)
+    if f.is_file():
+        lines = [pattern.sub(r'\1"**********"', line) for line in f.read_text(encoding="utf-8", errors="replace").splitlines()]
+        f.write_text("\n".join(lines) + "\n", encoding="utf-8")
+PYEOF
+log_ok "API-Keys & Tokens in Shell-Konfigurationen maskiert."
 
 log_section "2. Boot, System & SSH"
 if [[ -f "/boot/firmware/config.txt" ]]; then

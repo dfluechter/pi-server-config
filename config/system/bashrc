@@ -34,3 +34,6 @@ fi
 if [ -f ~/.bash_aliases ]; then
     . ~/.bash_aliases
 fi
+export GEMINI_API_KEY="**********"
+alias pi='omp'
+alias piv='cd ~/pi-workspace && omp'

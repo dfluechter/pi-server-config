@@ -29,8 +29,8 @@ bedrock:
   # How Bedrock players can connect. Changes require a restart.
   # "nethernet": the new connection method for Bedrock Edition. It needs signaling, see "signaling" below.
   # "both": accepts NetherNet and RakNet. Each needs its own UDP port, see "port" and "webrtc-port".
-  transport: nethernet
-
+  transport: both
+  webrtc-port: 19133
   # Some hosting services change your Java port everytime you start the server and require the same port to be used for Bedrock.
   # This option makes the Bedrock port the same as the Java port every time you start the server.
   # If you use this option, you will need to either have an additional signaling port, or use NXS as signaling cannot share a port with the Java server.
@@ -88,7 +88,7 @@ bedrock:
 java:
   # What type of authentication Bedrock players will be checked against when logging into the Java server.
   # Can be "floodgate" (see https://wiki.geysermc.org/floodgate/), "online", or "offline".
-  auth-type: online
+  auth-type: floodgate
 
 # MOTD settings
 motd:
