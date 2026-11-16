@@ -63,3 +63,4 @@ config/system/systemd/*. service.wants/
 *.bak
 *.swp
 *~
+**/*secrets*
