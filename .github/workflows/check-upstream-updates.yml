@@ -1,0 +1,134 @@
+name: Check Upstream Server & Plugin Updates
+
+on:
+  schedule:
+    - cron: "0 7 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check-versions:
+    name: Aktuelle PaperMC-, Plugin- & Pi-hole-Releases prüfen
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Repository auschecken
+        uses: actions/checkout@v4
+
+      - name: Python einrichten
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Upstream-Versionen abfragen & Summary erstellen
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - << 'PYEOF'
+          import json
+          import os
+          import urllib.error
+          import urllib.request
+
+          UA = "pi-server-config-update-checker/1.0 (https://github.com/dfluechter/pi-server-config)"
+
+
+          def fetch_json(url, extra_headers=None):
+              headers = {"User-Agent": UA, "Accept": "application/json"}
+              if extra_headers:
+                  headers.update(extra_headers)
+              req = urllib.request.Request(url, headers=headers)
+              with urllib.request.urlopen(req, timeout=20) as resp:
+                  return json.loads(resp.read().decode("utf-8"))
+
+
+          def check_papermc():
+              try:
+                  project = fetch_json("https://fill.papermc.io/v3/projects/paper")
+                  versions_map = project.get("versions", {})
+                  all_versions = []
+                  for group_versions in versions_map.values():
+                      if isinstance(group_versions, list):
+                          all_versions.extend(group_versions)
+                  latest_mc = all_versions[0] if all_versions else "unbekannt"
+
+                  builds = fetch_json(
+                      f"https://fill.papermc.io/v3/projects/paper/versions/{latest_mc}/builds"
+                  )
+                  stable = next((b for b in builds if b.get("channel") == "STABLE"), None)
+                  if stable:
+                      return f"MC `{latest_mc}` (Build `#{stable.get('id')}`, STABLE)"
+                  if builds:
+                      return f"MC `{latest_mc}` (Build `#{builds[0].get('id')}`, {builds[0].get('channel')})"
+                  return f"MC `{latest_mc}`"
+              except Exception as exc:
+                  return f"Fehler bei Abfrage ({exc})"
+
+
+          def check_geyser_project(project_name):
+              try:
+                  data = fetch_json(
+                      f"https://download.geysermc.org/v2/projects/{project_name}/versions/latest/builds/latest"
+                  )
+                  ver = data.get("version", "?")
+                  build = data.get("build", "?")
+                  return f"`{ver}` (Build `#{build}`)"
+              except Exception as exc:
+                  return f"Fehler bei Abfrage ({exc})"
+
+
+          def check_modrinth(slug):
+              try:
+                  versions = fetch_json(f"https://api.modrinth.com/v2/project/{slug}/version")
+                  release = next((v for v in versions if v.get("version_type") == "release"), versions[0])
+                  ver_num = release.get("version_number", "?")
+                  game_vers = ", ".join(release.get("game_versions", [])[:3])
+                  return f"`{ver_num}` (MC: {game_vers})"
+              except Exception as exc:
+                  return f"Fehler bei Abfrage ({exc})"
+
+
+          def check_github_release(repo):
+              try:
+                  headers = {}
+                  gh_auth = os.environ.get("GH_TOKEN")
+                  if gh_auth:
+                      headers["Authorization"] = f"Bearer {gh_auth}"
+                  data = fetch_json(f"https://api.github.com/repos/{repo}/releases/latest", headers)
+                  tag = data.get("tag_name", "?")
+                  pub = (data.get("published_at") or "")[:10]
+                  return f"`{tag}` ({pub})"
+              except Exception as exc:
+                  return f"Fehler bei Abfrage ({exc})"
+
+
+          rows = [
+              ("PaperMC Server", check_papermc(), "https://papermc.io/downloads/paper"),
+              ("GeyserMC (Spigot)", check_geyser_project("geyser"), "https://geysermc.org/download"),
+              ("Floodgate (Spigot)", check_geyser_project("floodgate"), "https://geysermc.org/download?project=floodgate"),
+              ("Squaremap", check_modrinth("squaremap"), "https://modrinth.com/plugin/squaremap"),
+              ("Chunky", check_modrinth("chunky"), "https://modrinth.com/plugin/chunky"),
+              ("Pi-hole Core", check_github_release("pi-hole/pi-hole"), "https://github.com/pi-hole/pi-hole/releases"),
+              ("Pi-hole FTL", check_github_release("pi-hole/FTL"), "https://github.com/pi-hole/FTL/releases"),
+              ("Pi-hole Web", check_github_release("pi-hole/web"), "https://github.com/pi-hole/web/releases"),
+          ]
+
+          lines = [
+              "## Wöchentlicher Upstream-Versionscheck (`pi-server-config`)",
+              "",
+              "| Komponente | Aktuellste verfügbare Version | Quelle |",
+              "| :--- | :--- | :--- |",
+          ]
+          for name, version, link in rows:
+              lines.append(f"| **{name}** | {version} | [Release-Seite]({link}) |")
+
+          report = "\n".join(lines) + "\n"
+          print(report)
+
+          summary_file = os.environ.get("GITHUB_STEP_SUMMARY")
+          if summary_file:
+              with open(summary_file, "a", encoding="utf-8") as fh:
+                  fh.write(report)
+          PYEOF
