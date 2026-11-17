@@ -38,3 +38,7 @@ alias pi='omp'
 alias piv='cd ~/pi-workspace && omp'
 eval "$(omp completions bash)"
 [ -f ~/.secrets ] && source ~/.secrets
+
+# Benutzer-Binaries (omp, bun, uv) sauber in PATH aufnehmen
+export BUN_INSTALL="$HOME/.bun"
+export PATH="$BUN_INSTALL/bin:$HOME/.local/bin:$PATH"
