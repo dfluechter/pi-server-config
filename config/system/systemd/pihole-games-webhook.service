@@ -1,0 +1,16 @@
+[Unit]
+Description=Pi-hole Android-Spiele 1-Klick Webhook
+After=network-online.target pihole-FTL.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+EnvironmentFile=/etc/default/pihole-games-webhook
+ExecStart=/usr/bin/python3 /usr/local/bin/pihole-games-webhook.py
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

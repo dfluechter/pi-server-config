@@ -1,0 +1,45 @@
+#!/usr/bin/env python3
+import json
+import sqlite3
+import subprocess
+import sys
+
+DB_PATH = "/etc/pihole/gravity.db"
+GROUP_NAME = "Android-Spiele"
+
+
+def get_status(cur):
+    row = cur.execute('SELECT enabled FROM "group" WHERE name = ?', (GROUP_NAME,)).fetchone()
+    if row is None:
+        raise RuntimeError(f"Gruppe '{GROUP_NAME}' nicht in {DB_PATH} gefunden.")
+    return bool(row[0])
+
+
+def main():
+    action = sys.argv[1].lower() if len(sys.argv) > 1 else "status"
+    if action not in {"on", "off", "toggle", "status"}:
+        print("Nutzung: pihole-games-toggle [on|off|toggle|status]", file=sys.stderr)
+        sys.exit(2)
+
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        cur = conn.cursor()
+        current = get_status(cur)
+
+        if action == "status":
+            print(json.dumps({"group": GROUP_NAME, "enabled": current}))
+            return
+
+        target = (not current) if action == "toggle" else (action == "on")
+        if target != current:
+            cur.execute('UPDATE "group" SET enabled = ? WHERE name = ?', (1 if target else 0, GROUP_NAME))
+            conn.commit()
+            subprocess.run(["/usr/local/bin/pihole", "reloadlists"], check=True, stdout=subprocess.DEVNULL)
+
+        print(json.dumps({"group": GROUP_NAME, "enabled": target}))
+    finally:
+        conn.close()
+
+
+if __name__ == "__main__":
+    main()

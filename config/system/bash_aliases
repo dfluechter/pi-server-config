@@ -28,11 +28,6 @@ alias pupdate='sudo pihole -up'
 alias syslog='sudo journalctl -f --output=short-precise'
 alias errlog='sudo journalctl -p 3 -xb'
 
-# --- Docker & Container Shortcuts ---
-alias dps='docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"'
-alias dlogs='docker logs -f --tail=100'
-alias dcompose='docker compose'
-
 # --- Git Shortcuts ---
 alias gs='git status'
 alias glog='git log --oneline --graph --decorate -n 20'
