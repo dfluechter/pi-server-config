@@ -81,6 +81,10 @@ Dieses Repository versioniert sämtliche System-, Netzwerk-, Dienst- und Gaming-
 * **Backup, Security & CI:**
   * Automatische Übernahme produktiver Systemdateien nach `~/pi-server-config` inklusive Maskierung sensibler Zugangsdaten.
   * Lokaler `pre-commit`-Hook und GitHub-Actions-CI-Pipeline gegen Syntaxfehler und versehentliche Secret-Leaks.
+* **Automatisierte System-Dokumentation (`oh-my-pi` / `omp`):**
+  * Ergänzend zum Konfigurations-Backup kommt in einer bewusst getrennten lokalen Arbeitsumgebung (`~/pi-workspace`) der CLI-Agent **`oh-my-pi` (`omp`)** zum Einsatz.
+  * Über den spezialisierten Audit-Skill `server-doc-auditor` werden Dienste wie Pi-hole v6, Unbound, Jellyfin, Samba und PaperMC strikt lesend (`read-only`) erfasst, sensible Werte (IPs, UUIDs, Tokens, Zugangsdaten) maskiert und als strukturierte Markdown-Notizen in einem lokalen Obsidian-Vault abgelegt.
+  * Durch die Trennung der Verzeichnisse bleiben Arbeitsumgebung, Vault-Notizen und Modell-Konfigurationen strikt vom öffentlichen Server-Repository isoliert.
 
 ### Technologien & Tech-Stack
 
@@ -95,7 +99,7 @@ Dieses Repository versioniert sämtliche System-, Netzwerk-, Dienst- und Gaming-
 * **Hardware & OS:** Raspberry Pi 5 (`aarch64`), Debian / Raspberry Pi OS, NetworkManager (`nmcli`), Systemd
 * **Netzwerk & DNS:** Pi-hole v6 (`pihole-FTL`), Unbound (DNSSEC), `dnsmasq`
 * **Dienste:** Jellyfin, Samba, PaperMC, GeyserMC, Floodgate, Squaremap, Chunky
-* **Automatisierung & CI:** Bash, Python 3.13, Git Hooks, GitHub Actions, ShellCheck, yamllint
+* **Automatisierung, Doku & CI:** Bash, Python 3.13, `oh-my-pi` (`omp`), Git Hooks, GitHub Actions, ShellCheck, yamllint
 
 <p align="right">(<a href="#readme-top">nach oben</a>)</p>
 
@@ -204,6 +208,7 @@ pi-server-config/
 
 * **Striktes Secret-Management:** Geheime Tokens (z. B. `WEBHOOK_TOKEN` in `/etc/default/pihole-games-webhook`) und Zugangsdaten verbleiben ausschließlich lokal auf dem Raspberry Pi (`chmod 600`) und werden nicht im Klartext ins Repository kopiert.
 * **Automatische Maskierung:** `git-sync-configs.sh` bereinigt Passwörter und API-Keys in Dateien wie `/etc/fstab` oder `.bashrc` vor dem Kopieren.
+* **Read-Only-System-Audits:** Dokumentationsläufe über `omp` (`server-doc-auditor`) greifen außerhalb von `~/pi-workspace` ausschließlich lesend auf das System zu und maskieren alle Netzwerk- und Authentifizierungsdaten.
 * **Zweistufige Prüfung:** Sowohl der lokale Git-Hook (`scripts/hooks/pre-commit`) als auch der GitHub-Actions-Workflow (`.github/workflows/validate-configs.yml`) blockieren Commits bzw. Pull Requests, sobald verdächtige Schlüssel oder Tokens erkannt werden.
 
 <p align="right">(<a href="#readme-top">nach oben</a>)</p>
@@ -216,6 +221,7 @@ pi-server-config/
 - [x] Client-spezifische Filtergruppen (`Default` & `Android-Spiele`) inkl. 1-Klick-Webhook implementieren
 - [x] PaperMC Minecraft-Server mit GeyserMC, Floodgate, Squaremap und Chunky konfigurieren
 - [x] Konfigurations-Sync (`git-sync-configs.sh`), Pre-Commit-Hook und CI-Validierung aufsetzen
+- [x] Automatisierte System-Audits via `oh-my-pi` (`omp`) für den lokalen Obsidian-Vault einrichten
 - [ ] Monatlichen Systemd-Timer für automatische Unbound Root-Hints-Updates ergänzen
 - [ ] Wöchentlichen GitHub-Actions-Check für neue PaperMC- und Plugin-Versionen hinzufügen
 
